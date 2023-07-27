@@ -39,12 +39,14 @@ ISODATETIME="/project/k1028/pag/mambaforge/envs/cylc/bin/isodatetime"
       [[[environment]]]
         ARCHIVE_PATH=/lustre2/project/k1028/pag/ARCHIVE/RegCM5_Mena_12km
         ENV_FILE=/lustre2/project/k1028/pag/s2s/env.shaheen_intel
-        RegCM5_EXE=/project/k1028/pag/SKRIPS_Wrap/build/AP8km4km/238/main/skrips.exe
-        ICBC_EXE=/lustre2/project/k1028/pag/s2s/build_WRF/WRF/main/real.exe
-        SST_EXE=/lustre2/project/k1028/pag/s2s/build_WRF/WRF/main/real.exe
+        RegCM5_EXE=@RegCM5_EXE
+        ICBC_EXE=@ICBC_EXE
+        SST_EXE=@SST_EXE
         ISODATETIME=/project/k1028/pag/mambaforge/envs/cylc/bin/isodatetime
         DOMFILE=@DOMFILE
         DOMNAME=@DOMNAME
+        NAMELIST=/lustre2/project/k1028/pag/Regcm_cylc/MENA_12km_ERA5/regcm.input
+
 
         # Run 1 hour extra because WRF sometimes fails to write restart files
         OFFSETHOURS=0
@@ -174,7 +176,7 @@ ISODATETIME="/project/k1028/pag/mambaforge/envs/cylc/bin/isodatetime"
 
             export restart_interval=$(echo "$RUN_DURATION_HOURS*60" | bc )
 
-            envsubst < $CYLC_WORKFLOW_RUN_DIR/regcm.input > regcm.input
+            envsubst < $NAMELIST > regcm.input
             mkdir output input
 
             ln -sf $DOMFILE input/${DOMNAME}_DOMAIN000.nc
