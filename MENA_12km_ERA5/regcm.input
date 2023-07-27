@@ -23,7 +23,7 @@
  !i_band = 0,
  /
  &terrainparam
- domname = 'test_mena12',
+ domname = $DOMNAME,
  lakedpth = .false.,
  fudge_lnd   = .false.,
  fudge_lnd_s = .false.,
@@ -43,16 +43,16 @@
  ibdyfrq = 6,
  ssttyp = 'ERA5',
  dattyp = 'ERA5',
- gdate1  = $syear$smonth$sday$shour,
- gdate2  = $eyear$emonth$eday$ehour,
+ gdate1  = $start_date,
+ gdate2  = $end_date,
  dirglob = './input',
  inpglob = '/lustre2/project/k1028/saharwm/regcm/REGCM_GLOBEDAT',
  /
  &restartparam
  ifrest  = $restart ,
- mdate0  = $iyear$imonth$iday$ihour,
- mdate1  = $syear$smonth$sday$shour,
- mdate2  = $eyear$emonth$eday$ehour,
+ mdate0  = 1979010100,
+ mdate1  = $start_date,
+ mdate2  = $end_date,
  /
  &timeparam
  dtrad   =    30.,
