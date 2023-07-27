@@ -43,16 +43,16 @@
  ibdyfrq = 6,
  ssttyp = 'ERA5',
  dattyp = 'ERA5',
- gdate1  = "${start_date}00",
- gdate2  = "${end_date}00",
+ gdate1  = ${start_date}00,
+ gdate2  = ${end_date}00,
  dirglob = './input',
  inpglob = '/lustre2/project/k1028/saharwm/regcm/REGCM_GLOBEDAT',
  /
  &restartparam
  ifrest  = $restart ,
  mdate0  = 1979010100,
- mdate1  = "${start_date}00",
- mdate2  = "${end_date}00",
+ mdate1  = ${start_date}00,
+ mdate2  = ${end_date}00,
  /
  &timeparam
  dtrad   =    30.,

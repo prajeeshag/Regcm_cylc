@@ -60,8 +60,8 @@ ISODATETIME="/project/k1028/pag/mambaforge/envs/cylc/bin/isodatetime"
     [[icbc]]
         script = """
             source $ENV_FILE
-            srun -n 1 $ICBC_EXE regcm.input &
-            srun -n 1 $SST_EXE regcm.input &
+            srun -n 1 $ICBC_EXE regcm.input
+            srun -n 1 $SST_EXE regcm.input
             wait
         """
         platform = shaheen
