@@ -1,0 +1,109 @@
+! MENA domain 
+ &dimparam
+ iy     = 504,
+ jx     = 892,
+ kz     = 30,
+ nsg    = 1,
+ /
+
+ &coreparam
+ idynamic = 3,
+ /
+
+ &geoparam
+ iproj = 'NORMER',
+ ds = 12,
+ !ptop = 5.0,
+ clat = 21.4,
+ clon = 24.5,
+ !plat = 71.0,
+ !plon = 204.5,
+ !truelatl = 10.0,
+ !truelath = 80,
+ !i_band = 0,
+ /
+ &terrainparam
+ domname = 'test_mena12',
+ lakedpth = .false.,
+ fudge_lnd   = .false.,
+ fudge_lnd_s = .false.,
+ fudge_tex   = .false.,
+ fudge_tex_s = .false.,
+ dirter = './input',
+ inpter = '/lustre2/project/k1028/saharwm/regcm/REGCM_GLOBEDAT',
+ /
+ &debugparam
+ debug_level = 0,
+ /
+ &boundaryparam
+ nspgx  = 40,
+ nspgd  = 40,
+ /
+ &globdatparam
+ ibdyfrq = 6,
+ ssttyp = 'ERA5',
+ dattyp = 'ERA5',
+ gdate1  = $syear$smonth$sday$shour,
+ gdate2  = $eyear$emonth$eday$ehour,
+ dirglob = './input',
+ inpglob = '/lustre2/project/k1028/saharwm/regcm/REGCM_GLOBEDAT',
+ /
+ &restartparam
+ ifrest  = $restart ,
+ mdate0  = $iyear$imonth$iday$ihour,
+ mdate1  = $syear$smonth$sday$shour,
+ mdate2  = $eyear$emonth$eday$ehour,
+ /
+ &timeparam
+ dtrad   =    30.,
+ dtabem  =    18.,
+ dtsrf   =   600.,
+ dt      =   $time_step,
+ /
+ &outparam
+ ifsave  = .true. ,
+  savfrq  =    0.,
+ ifatm  = .true. ,
+ atmfrq  =     6.,
+ ifrad   = .true. ,
+   radfrq  =     6.,
+ ifsrf   = .true. ,
+ ifsub   = .true. ,
+   srffrq  =     3.,
+ ifchem  = .false.,
+   chemfrq =     6.,
+ dirout = './output',
+ /
+ &physicsparam
+ iboudy  =          5,
+ ibltyp  =          1,
+ icup_lnd =         5,
+ icup_ocn =         5,
+ ipptls  =          2,
+ iocnflx =          2,
+ iocnrough =        1,
+ iocnzoq =          1,
+ ipgf    =          0,
+ iemiss  =          0,
+ lakemod =          0,
+ ichem   =          0,
+ idcsst = 0,
+ iseaice = 0,
+ !idesseas = 0,
+ !iconvlwp = 0,
+ /
+ &subexparam
+ /
+ &grellparam
+ /
+ &holtslagparam
+ /
+ &clm_inparm
+ fpftcon = 'pft-physiology.c130503.nc',
+ fsnowoptics = 'snicar_optics_5bnd_c090915.nc',
+ fsnowaging = 'snicar_drdt_bst_fit_60_c070416.nc',
+ /
+ &clm_soilhydrology_inparm
+ /
+ &clm_hydrology1_inparm
+ /

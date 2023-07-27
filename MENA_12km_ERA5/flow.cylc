@@ -1,0 +1,210 @@
+#!EmPy
+# Cylc Suit for running RegCM5 for MENA region using ERA5 boundary conditions
+# Author: Prajeesh
+#
+# NOTE:
+#   Mininum RUNCYCLE should be P1D
+
+@{
+RUNCYCLE="P6M"
+RegCM5_Nodes=40
+RegCM5_Tasks=1280
+ACCOUNT="k1325"
+PARTITION="workq"
+}
+
+[scheduling]
+    initial cycle point = 1979-01-01
+    final cycle point = 2022-01-01
+    [[graph]]
+        @RUNCYCLE = """
+            regcm[-@RUNCYCLE]:submitted => setup_rundir
+            setup_rundir => link_icbc:fail? => (sst & icbc) => archive_icbc
+            ((sst & icbc) | link_icbc:succeed?)) & archive_restarts[-@RUNCYCLE] => link_restarts
+            link_restarts => regcm => archive_restarts
+            regcm => archive_outputs
+            archive_outputs & archive_restarts => scrap_rundir
+        """
+[runtime]
+    [[root]]
+      work sub-directory = $CYLC_TASK_CYCLE_POINT/
+      [[[environment]]]
+        ARCHIVE_PATH=/lustre2/project/k1028/pag/ARCHIVE/RegCM5_Mena_12km
+        ENV_FILE=/lustre2/project/k1028/pag/s2s/env.shaheen_intel
+        RegCM5_EXE=/project/k1028/pag/SKRIPS_Wrap/build/AP8km4km/238/main/skrips.exe
+        ICBC_EXE=/lustre2/project/k1028/pag/s2s/build_WRF/WRF/main/real.exe
+        SST_EXE=/lustre2/project/k1028/pag/s2s/build_WRF/WRF/main/real.exe
+        ISODATETIME=/project/k1028/pag/mambaforge/envs/cylc/bin/isodatetime
+        SETUP_RUN_DIR=/lustre2/project/k1028/pag/SKRIPS_SETUPS/AP8km4km/RUN
+
+        # Run 1 hour extra because WRF sometimes fails to write restart files
+        OFFSETHOURS=0
+        RUNCYCLE=@RUNCYCLE
+        time_step=60 # Atm time step
+
+      [[[directives]]]
+        --account = @ACCOUNT
+        --partition = @PARTITION
+
+    [[sst]]
+        script = """
+            source $ENV_FILE
+            srun $SST_EXE regcm.input
+        """
+        platform = shaheen
+        [[[directives]]]
+            --nodes = 1
+            --ntasks=1
+            --time=24:00:00
+
+    [[icbc]]
+        script = """
+            source $ENV_FILE
+            srun $ICBC_EXE regcm.input
+        """
+        platform = shaheen
+        [[[directives]]]
+            --nodes = 1
+            --ntasks=1
+            --time=24:00:00
+
+    [[archive_icbc]]
+        script = """
+            set -x
+            echo "Archive ICBC"
+            INPUT_DIR=$ARCHIVE_PATH/INPUTS/${CYLC_TASK_CYCLE_POINT}
+            mkdir -p $INPUT_DIR
+            cp -f input-* $INPUT_DIR/
+        """
+        platform=shaheen_login
+
+    [[archive_restarts]]
+        script = """
+            echo "Move restart files"
+            mkdir -p $ARCHIVE_PATH/RESTARTS
+            find . -type l -delete # Delete all softlinks
+            cp wrfrst_* pickup.* $ARCHIVE_PATH/RESTARTS && rm -f wrfrst_* pickup.*
+        """
+        platform=shaheen_login
+
+    [[link_icbc]]
+        script = """
+            set -x
+            # Link real.exe output files
+            INPUT_DIR=$ARCHIVE_PATH/INPUTS/${CYLC_TASK_CYCLE_POINT}
+            source_file=$INPUT_DIR/wrfbdy_d01
+            [ -e "$source_file" ] && ln -s "$source_file" . || { echo "Error while linking $source_file "; exit 1;}
+            source_file=$INPUT_DIR/wrffdda_d01 
+            [ -e "$source_file" ] && ln -s "$source_file" . || { echo "Error while linking $source_file "; exit 1;}
+            source_file=$INPUT_DIR/wrfinput_d01 
+            [ -e "$source_file" ] && ln -s "$source_file" . || { echo "Error while linking $source_file "; exit 1;}
+            source_file=$INPUT_DIR/wrflowinp_d01 
+            [ -e "$source_file" ] && ln -s "$source_file" . || { echo "Error while linking $source_file "; exit 1;}
+        """
+        platform=shaheen_login
+
+    [[link_restarts]]
+        script = """
+            echo "Link restart files"
+            # Link restart files
+            if [[ "$CYLC_TASK_CYCLE_POINT" == "$CYLC_WORKFLOW_INITIAL_CYCLE_POINT" ]]; then
+                echo "Cold start: No restart to link"
+                exit 0
+            fi
+
+            startTime=$($ISODATETIME ${CYLC_WORKFLOW_INITIAL_CYCLE_POINT} ${CYLC_TASK_CYCLE_POINT} --as-total S)
+            
+            nIter=$(echo "$startTime/$deltaT" | bc)
+            nIter=$(printf "%010d\n" $nIter)
+            dateStamp=$($ISODATETIME ${CYLC_TASK_CYCLE_POINT} --format CCYY-MM-DDThh:mm:ss | sed 's/T/_/g')
+
+            source_file=$ARCHIVE_PATH/RESTARTS/pickup.$nIter.meta
+            [ -e "$source_file" ] && ln -sf "$source_file" . || { echo "Error while linking $source_file "; exit 1;}
+
+            source_file=$ARCHIVE_PATH/RESTARTS/pickup.$nIter.data 
+            [ -e "$source_file" ] && ln -sf "$source_file" . || { echo "Error while linking $source_file "; exit 1;}
+
+            source_file=$ARCHIVE_PATH/RESTARTS/wrfrst_d01_$dateStamp 
+            [ -e "$source_file" ] && ln -sf "$source_file" . || { echo "Error while linking $source_file "; exit 1;}
+        """
+        platform=shaheen_login
+
+    [[archive_outputs]]
+        script = """
+            echo "Move Outputs"
+            mkdir -p $ARCHIVE_PATH/OUTPUTS/ATM
+            mkdir -p $ARCHIVE_PATH/OUTPUTS/OCN
+            cp -r output-* $ARCHIVE_PATH/OUTPUTS/ && rm -f output-*
+        """
+        platform=shaheen_login
+
+    [[scrap_rundir]]
+        script = """
+            echo "Scrap run directory"
+            rm -rf *
+        """
+        platform=shaheen_login
+
+    [[setup_rundir]]
+        script = """
+            set -x
+
+            NEXT_CYCLE_POINT=$($ISODATETIME ${CYLC_TASK_CYCLE_POINT} --offset1=${RUNCYCLE})
+            RUN_DURATION_HOURS=$($ISODATETIME ${CYLC_TASK_CYCLE_POINT} ${NEXT_CYCLE_POINT} --as-total H)
+            RUN_DURATION_HOURS_FINAL=$($ISODATETIME ${CYLC_TASK_CYCLE_POINT} ${CYLC_WORKFLOW_FINAL_CYCLE_POINT} --as-total H)
+
+            END_DATE=${NEXT_CYCLE_POINT}
+            result=$(echo "$RUN_DURATION_HOURS_FINAL < $RUN_DURATION_HOURS" | bc -l)
+            if [ "$result" -eq 1 ]; then
+              END_DATE=${CYLC_WORKFLOW_FINAL_CYCLE_POINT}
+              RUN_DURATION_HOURS=$RUN_DURATION_HOURS_FINAL
+            fi
+
+            RUN_HOURS=$( echo "$RUN_DURATION_HOURS + $OFFSETHOURS" | bc ) 
+
+            result=$(echo "$RUN_DURATION_HOURS == 0" | bc -l)
+            if [[ $result -eq 1 ]]; then
+              echo "Reached final cycling point nothing to do.."
+              exit 1
+            fi
+            echo $NEXT_CYCLE_POINT $RUN_DURATION_HOURS $NEXT_CYCLE_POINT
+
+            RUN_DURATION_SECONDS=$(echo "$RUN_DURATION_HOURS*3600" | bc)
+            RUN_SECONDS=$(echo "$RUN_HOURS*3600" | bc)
+            export startTime=$($ISODATETIME ${CYLC_WORKFLOW_INITIAL_CYCLE_POINT} ${CYLC_TASK_CYCLE_POINT} --as-total S)
+            export startDate=$($ISODATETIME ${CYLC_WORKFLOW_INITIAL_CYCLE_POINT} -f CCYYMMDD)
+            export endTime=$(echo "$RUN_SECONDS + $startTime" | bc)
+            export chkptFreq=$RUN_DURATION_SECONDS
+
+            export start_year=$($ISODATETIME ${CYLC_TASK_CYCLE_POINT} -f CCYY)
+            export start_month=$($ISODATETIME ${CYLC_TASK_CYCLE_POINT} -f MM)
+            export start_day=$($ISODATETIME ${CYLC_TASK_CYCLE_POINT} -f DD)
+            export start_hour=0
+            export end_year=$($ISODATETIME ${END_DATE} -f CCYY)
+            export end_month=$($ISODATETIME ${END_DATE} -f MM)
+            export end_day=$($ISODATETIME ${END_DATE} -f DD)
+            export end_hour=$OFFSETHOURS
+            export restart=".true."
+            if [[ "$CYLC_TASK_CYCLE_POINT" == "$CYLC_WORKFLOW_INITIAL_CYCLE_POINT" ]]; then
+              export restart=".false."
+            fi
+            export restart_interval=$(echo "$RUN_DURATION_HOURS*60" | bc )
+
+            # Copy runtime files
+            cp $SETUP_RUN_DIR/* .
+            envsubst < $SETUP_RUN_DIR/namelist.esmf > regcm.input
+
+        """
+        platform = shaheen_login
+
+    [[regcm]]
+        script = """
+            source $ENV_FILE
+            srun $SKRIPS_EXE
+        """
+        platform = shaheen
+        [[[directives]]]
+            --nodes = @RegCM5_Nodes
+            --ntasks = @RegCM5_Tasks
+            --time=24:00:00
+
