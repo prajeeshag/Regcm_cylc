@@ -45,11 +45,6 @@ ISODATETIME="/project/k1028/pag/mambaforge/envs/cylc/bin/isodatetime"
         ISODATETIME=/project/k1028/pag/mambaforge/envs/cylc/bin/isodatetime
         DOMFILE=@DOMFILE
         DOMNAME=@DOMNAME
-        NAMELIST=/lustre2/project/k1028/pag/Regcm_cylc/MENA_12km_ERA5/regcm.input
-
-
-        # Run 1 hour extra because WRF sometimes fails to write restart files
-        OFFSETHOURS=0
         RUNCYCLE=@RUNCYCLE
         time_step=60 # Atm time step
 
@@ -60,18 +55,27 @@ ISODATETIME="/project/k1028/pag/mambaforge/envs/cylc/bin/isodatetime"
     [[icbc]]
         script = """
             source $ENV_FILE
-            srun -n 1 $ICBC_EXE regcm.input
-            srun -n 1 $SST_EXE regcm.input
-            wait
+            srun --ntasks=1 $SST_EXE regcm.input
+            srun --ntasks=1 $ICBC_EXE regcm.input
+            #srun --exclusive --ntasks=1 --mem-per-cpu 20G $ICBC_EXE regcm.input.1 &
+            #srun --exclusive --ntasks=1 --mem-per-cpu 20G $ICBC_EXE regcm.input.2 &
+            #srun --exclusive --ntasks=1 --mem-per-cpu 20G $ICBC_EXE regcm.input.3 &
+            #srun --exclusive --ntasks=1 --mem-per-cpu 20G $ICBC_EXE regcm.input.4 &
+            #srun --exclusive --ntasks=1 --mem-per-cpu 20G $ICBC_EXE regcm.input.5 &
+            #srun --exclusive --ntasks=1 --mem-per-cpu 20G $ICBC_EXE regcm.input.6 &
+            #wait
         """
         platform = shaheen
         [[[directives]]]
             --nodes = 1
             --time=24:00:00
+            #--mem=120G
+            #--ntasks=6
+            
+
 
     [[archive_icbc]]
         script = """
-            set -x
             echo "Archive ICBC"
             INPUT_DIR=$ARCHIVE_PATH/INPUTS/${CYLC_TASK_CYCLE_POINT}
             mkdir -p $INPUT_DIR
@@ -81,7 +85,6 @@ ISODATETIME="/project/k1028/pag/mambaforge/envs/cylc/bin/isodatetime"
 
     [[link_icbc]]
         script = """
-            set -x
             # Link real.exe output files
             INPUT_DIR=$ARCHIVE_PATH/INPUTS/${CYLC_TASK_CYCLE_POINT}
             source_file=$INPUT_DIR/wrfbdy_d01
@@ -107,13 +110,12 @@ ISODATETIME="/project/k1028/pag/mambaforge/envs/cylc/bin/isodatetime"
             dateStamp=$($ISODATETIME ${CYLC_TASK_CYCLE_POINT} --format CCYYMMDD)
 
             source_file=$ARCHIVE_PATH/RESTARTS/${DOMNAME}_SAV.${dateStamp}00.nc
-            [ -e "$source_file" ] && ln -sf "$source_file" . || { echo "Error while linking $source_file "; exit 1;}
+            [ -e "$source_file" ] && ln -sf "$source_file" output/ || { echo "Error while linking $source_file "; exit 1;}
         """
         platform=shaheen_login
 
     [[archive_outputs]]
         script = """
-          set -x
           echo "Move Outputs"
           mkdir -p $ARCHIVE_PATH/OUTPUTS/
           cd output
@@ -123,7 +125,6 @@ ISODATETIME="/project/k1028/pag/mambaforge/envs/cylc/bin/isodatetime"
 
     [[archive_restarts]]
         script = """
-          set -x
           echo "Move Outputs"
           mkdir -p $ARCHIVE_PATH/RESTARTS/
           cd output
@@ -133,7 +134,6 @@ ISODATETIME="/project/k1028/pag/mambaforge/envs/cylc/bin/isodatetime"
 
     [[scrap_rundir]]
         script = """
-          set -x
           echo "Scrap run directory"
           rm -rf *
         """
@@ -141,7 +141,6 @@ ISODATETIME="/project/k1028/pag/mambaforge/envs/cylc/bin/isodatetime"
 
     [[setup_rundir]]
         script = """
-            set -x
 
             NEXT_CYCLE_POINT=$($ISODATETIME ${CYLC_TASK_CYCLE_POINT} --offset1=${RUNCYCLE})
             RUN_DURATION_HOURS=$($ISODATETIME ${CYLC_TASK_CYCLE_POINT} ${NEXT_CYCLE_POINT} --as-total H)
@@ -154,7 +153,9 @@ ISODATETIME="/project/k1028/pag/mambaforge/envs/cylc/bin/isodatetime"
               RUN_DURATION_HOURS=$RUN_DURATION_HOURS_FINAL
             fi
 
-            RUN_HOURS=$( echo "$RUN_DURATION_HOURS + $OFFSETHOURS" | bc )
+            OFFSETHOURS=0
+
+            RUN_HOURS=$( echo "$RUN_DURATION_HOURS $OFFSETHOURS" | bc )
 
             result=$(echo "$RUN_DURATION_HOURS == 0" | bc -l)
             if [[ $result -eq 1 ]]; then
@@ -176,10 +177,22 @@ ISODATETIME="/project/k1028/pag/mambaforge/envs/cylc/bin/isodatetime"
 
             export restart_interval=$(echo "$RUN_DURATION_HOURS*60" | bc )
 
-            envsubst < $NAMELIST > regcm.input
-            mkdir output input
+            envsubst < $CYLC_WORKFLOW_RUN_DIR/etc/regcm.input > regcm.input
+            mkdir -p output input
 
             ln -sf $DOMFILE input/${DOMNAME}_DOMAIN000.nc
+            
+            final_date=$end_date
+            NEXT_CYCLE_POINT=$CYLC_TASK_CYCLE_POINT
+            n=0
+            while [ ${start_date} -lt ${final_date} ]; do
+              n=$(echo "$n + 1" | bc)
+              NEXT_CYCLE_POINT=$($ISODATETIME ${NEXT_CYCLE_POINT} --offset1=P1M)
+              export end_date=$($ISODATETIME ${NEXT_CYCLE_POINT} -f CCYYMMDD)
+              envsubst < $CYLC_WORKFLOW_RUN_DIR/etc/regcm.input > regcm.input.$n
+              export start_date=$end_date
+            done
+
         """
         platform = shaheen_login
 
