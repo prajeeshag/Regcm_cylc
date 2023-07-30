@@ -116,10 +116,11 @@ ISODATETIME="/project/k1028/pag/mambaforge/envs/cylc/bin/isodatetime"
 
     [[archive_outputs]]
         script = """
-          echo "Move Outputs"
+          echo "Archive Outputs"
+          NEXT_CYCLE_POINT=$($ISODATETIME ${CYLC_TASK_CYCLE_POINT} --offset1=${RUNCYCLE})
           mkdir -p $ARCHIVE_PATH/OUTPUTS/
           cd output
-          cp *_ATM.*.nc  *_RAD.*.nc  *_SRF.*.nc  *_STS.*.nc $ARCHIVE_PATH/OUTPUTS/
+          tar -zcvf $ARCHIVE_PATH/OUTPUTS/atm_${CYLC_TASK_CYCLE_POINT}-${NEXT_CYCLE_POINT}.tar.gz  *_ATM.*.nc  *_RAD.*.nc  *_SRF.*.nc  *_STS.*.nc 
         """
         platform=shaheen_login
 
@@ -127,6 +128,7 @@ ISODATETIME="/project/k1028/pag/mambaforge/envs/cylc/bin/isodatetime"
         script = """
           echo "Move Outputs"
           mkdir -p $ARCHIVE_PATH/RESTARTS/
+          find . -type l -delete # Delete all softlinks
           cd output
           cp *_SAV.*.nc  $ARCHIVE_PATH/RESTARTS/
         """
@@ -145,8 +147,8 @@ ISODATETIME="/project/k1028/pag/mambaforge/envs/cylc/bin/isodatetime"
             NEXT_CYCLE_POINT=$($ISODATETIME ${CYLC_TASK_CYCLE_POINT} --offset1=${RUNCYCLE})
             RUN_DURATION_HOURS=$($ISODATETIME ${CYLC_TASK_CYCLE_POINT} ${NEXT_CYCLE_POINT} --as-total H)
             RUN_DURATION_HOURS_FINAL=$($ISODATETIME ${CYLC_TASK_CYCLE_POINT} ${CYLC_WORKFLOW_FINAL_CYCLE_POINT} --as-total H)
-
             END_DATE=${NEXT_CYCLE_POINT}
+
             result=$(echo "$RUN_DURATION_HOURS_FINAL < $RUN_DURATION_HOURS" | bc -l)
             if [ "$result" -eq 1 ]; then
               END_DATE=${CYLC_WORKFLOW_FINAL_CYCLE_POINT}
