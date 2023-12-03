@@ -7,17 +7,17 @@
 
 @{
 RUNCYCLE="P6M"
-RegCM5_Nodes=40
-RegCM5_Tasks=1280
+RegCM5_Nodes=25
+RegCM5_Tasks=800
 ACCOUNT="k1325"
 PARTITION="workq"
 DOMNAME="MENA12km_ERA5"
 DOMFILE="/lustre2/project/k1028/pag/RegCM5/Domains/MENA12km/test_mena12_DOMAIN000.nc"
 ARCHIVE_PATH="/lustre2/project/k1028/pag/ARCHIVE/RegCM5_Mena_12km"
 ENV_FILE="/lustre2/project/k1028/pag/s2s/env.shaheen_intel"
-RegCM5_EXE="/project/k1028/saharwm/RegCM5_setup/RegCM-5.0.0/bin/regcmMPIpgiFortran_pgiFortran"
-ICBC_EXE="/project/k1028/saharwm/RegCM5_setup/RegCM-5.0.0/bin/icbcpgiFortran_pgiFortran"
-SST_EXE="/project/k1028/saharwm/RegCM5_setup/RegCM-5.0.0/bin/sstpgiFortran_pgiFortran"
+RegCM5_EXE="/lustre2/project/k1028/pag/RegCM5/RegCM-5.0.0/bin/regcmMPIpgiFortran_pgiFortran"
+ICBC_EXE="/lustre2/project/k1028/pag/RegCM5/RegCM-5.0.0/bin/icbcpgiFortran_pgiFortran"
+SST_EXE="/lustre2/project/k1028/pag/RegCM5/RegCM-5.0.0/bin/sstpgiFortran_pgiFortran"
 ISODATETIME="/project/k1028/pag/mambaforge/envs/cylc/bin/isodatetime"
 }
 
@@ -66,10 +66,10 @@ ISODATETIME="/project/k1028/pag/mambaforge/envs/cylc/bin/isodatetime"
             #wait
         """
         platform = shaheen
+        execution retry delays = 1*PT10S
         [[[directives]]]
             --nodes = 1
             --time=24:00:00
-            #--mem=120G
             #--ntasks=6
             
 
@@ -120,7 +120,8 @@ ISODATETIME="/project/k1028/pag/mambaforge/envs/cylc/bin/isodatetime"
           NEXT_CYCLE_POINT=$($ISODATETIME ${CYLC_TASK_CYCLE_POINT} --offset1=${RUNCYCLE})
           mkdir -p $ARCHIVE_PATH/OUTPUTS/
           cd output
-          tar -zcvf $ARCHIVE_PATH/OUTPUTS/atm_${CYLC_TASK_CYCLE_POINT}-${NEXT_CYCLE_POINT}.tar.gz  *_ATM.*.nc  *_RAD.*.nc  *_SRF.*.nc  *_STS.*.nc 
+
+          cp *_ATM.*.nc  *_RAD.*.nc  *_SRF.*.nc  *_STS.*.nc  $ARCHIVE_PATH/OUTPUTS/
         """
         platform=shaheen_login
 
@@ -191,7 +192,8 @@ ISODATETIME="/project/k1028/pag/mambaforge/envs/cylc/bin/isodatetime"
               n=$(echo "$n + 1" | bc)
               NEXT_CYCLE_POINT=$($ISODATETIME ${NEXT_CYCLE_POINT} --offset1=P1M)
               export end_date=$($ISODATETIME ${NEXT_CYCLE_POINT} -f CCYYMMDD)
-              envsubst < $CYLC_WORKFLOW_RUN_DIR/etc/regcm.input > regcm.input.$n
+              #mkdir -p icbc$n/input
+              #envsubst < $CYLC_WORKFLOW_RUN_DIR/etc/regcm.input > icbc$n/regcm.input
               export start_date=$end_date
             done
 

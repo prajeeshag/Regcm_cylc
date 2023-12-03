@@ -46,7 +46,7 @@
  gdate1  = ${start_date}00,
  gdate2  = ${end_date}00,
  dirglob = './input',
- inpglob = '/lustre2/project/k1028/saharwm/regcm/REGCM_GLOBEDAT',
+ inpglob = '/lustre2/project/k1028/pag/RegCM5/REGCM_GLOBEDAT',
  /
  &restartparam
  ifrest  = $restart ,
